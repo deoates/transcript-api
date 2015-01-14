@@ -1,5 +1,4 @@
 gcloud = require('gcloud')
-http = require('http')
 fs = require('fs')
 multiparty = require('multiparty')
 Mimer = require('mimer')
@@ -16,22 +15,16 @@ app.use cors()
 app.use bodyParser.json()
 app.use bodyParser.urlencoded({ extended: true })
 
-server = http.createServer(app)
-server.listen(app.get('port'))
-console.log server.address()
+app.listen app.get('port'), ->
+  'App is running on port: ' + app.get('port')
 
-# stripe
-
-stripeKey = "pk_live_hsLlDsQtfXsdbHWWpiWjoJd2"
-
-
-if app.get('host') is "localhost" 
-  stripeKey = "pk_test_ScjtJxkUb5VrbwH0Xdx0K8Ej"
-
+# STRIPE
+stripeKey = 'pk_live_hsLlDsQtfXsdbHWWpiWjoJd2'
 stripe = require("stripe")(stripeKey)
 
 app.get '/stripeKey', (req, res) ->
   res.send(stripeKey)
+
 
 
 app.post '/order', (req, res) ->
