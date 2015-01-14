@@ -1,4 +1,5 @@
 gcloud = require('gcloud')
+http = require('http')
 fs = require('fs')
 multiparty = require('multiparty')
 Mimer = require('mimer')
@@ -9,26 +10,22 @@ bodyParser = require('body-parser')
 
 app = express()
 app.use express.static(__dirname + '/public')
+app.set 'port', process.env.PORT || 5000
+
 app.use cors()
 app.use bodyParser.json()
 app.use bodyParser.urlencoded({ extended: true })
 
-# start the server
-
-server = app.listen 3002, ->
-
-  host = server.address().address
-  port = server.address().port
-
-  console.log 'Example app listening at http://%s:%s', host, port
-
+server = http.createServer(app)
+server.listen(app.get('port'))
+console.log server.address()
 
 # stripe
 
 stripeKey = "pk_live_hsLlDsQtfXsdbHWWpiWjoJd2"
 
 
-if server.address().address = "localhost" 
+if app.get('host') is "localhost" 
   stripeKey = "pk_test_ScjtJxkUb5VrbwH0Xdx0K8Ej"
 
 stripe = require("stripe")(stripeKey)
