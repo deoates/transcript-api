@@ -4,6 +4,7 @@ multiparty = require('multiparty')
 Mimer = require('mimer')
 express = require('express')
 cors = require('cors')
+morgan = require('morgan')
 
 bodyParser = require('body-parser')
 
@@ -14,39 +15,48 @@ app.set 'port', process.env.PORT || 5000
 app.use cors()
 app.use bodyParser.json()
 app.use bodyParser.urlencoded({ extended: true })
+app.use morgan('tiny')
+
+app.use (err, req, res, next) ->
+  console.error err.stack
+  res.status(500).send 'Something broke!'
 
 app.listen app.get('port'), ->
-  'App is running on port: ' + app.get('port')
+  console.log 'App is running on port: ' + app.get('port')
 
 # STRIPE
-stripeKey = 'pk_live_hsLlDsQtfXsdbHWWpiWjoJd2'
-stripe = require("stripe")(stripeKey)
+publishableStripeKey = 'pk_live_hsLlDsQtfXsdbHWWpiWjoJd2'
+secretStripeKey = 'sk_live_PW91KQpJVLgZSOOBcrCpkYKa'
+stripe = require("stripe")(secretStripeKey)
 
 app.get '/stripeKey', (req, res) ->
-  res.send(stripeKey)
-
-
+  res.status(200).send(publishableStripeKey)
 
 app.post '/order', (req, res) ->
   
-  amt = req.param('amt')
-  card = req.param('card')
+  amount = req.param('amount')
+  token = req.param('token')
   email = req.param('email')
+  files = req.param('files')
+  length = req.param('length')
 
-  console.log amt, card, email
-
-  return
-
-  stripe.charges.create
-    amount: amt
+  charge = stripe.charges.create 
+    amount: amount
     currency: "usd"
-    card: card
-    description: "Charge: #{email}"
+    card: token
     metadata:
       'email': email
+      'files': files
+      'length': length
+    description: length + " audio transcription"
   , (err, charge) ->
-    console.log err, charge
-
+    if err 
+      console.log err
+      if err.type is 'StripeCardError' 
+        res.status(400).send('Payment declined')
+    else
+      console.log charge
+      res.status(200).send('Payment successful!')
 
 storage = gcloud.storage
   keyFilename: 'keys.json'
