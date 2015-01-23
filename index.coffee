@@ -6,6 +6,11 @@ express = require('express')
 cors = require('cors')
 morgan = require('morgan')
 
+ffmpeg = require('fluent-ffmpeg')
+command = ffmpeg('test.mp3', (err, meta) ->
+  console.dir(meta)
+)
+
 bodyParser = require('body-parser')
 
 app = express()
