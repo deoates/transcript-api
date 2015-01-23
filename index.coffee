@@ -7,9 +7,7 @@ cors = require('cors')
 morgan = require('morgan')
 
 ffmpeg = require('fluent-ffmpeg')
-command = ffmpeg('test.mp3', (err, meta) ->
-  console.dir(meta)
-)
+
 
 bodyParser = require('body-parser')
 
@@ -71,14 +69,42 @@ bucket = storage.bucket('transcript-engine')
 
 app.post '/upload', (req, res) ->
 
+  fileName = ""
+  fileType = ""
+
   form = new multiparty.Form(autoFile: false)
 
   form.on 'close', ->
-    res.send 200
+
+    ffmpeg.ffprobe "./uploads/#{fileName}", (err, metadata) ->
+      if metadata?.format?
+        res.status(200).send(metadata.format)
+        console.log "File upload + duration check successful"
+      else
+        res.status(200).send("Unknown length")
+        console.log "File upload successful, duration check failed"
+
+    options =
+      resumable: true
+      validation: 'crc32c'
+      destination: fileName
+      metadata:
+        contentType: Mimer(fileType)
+
+    bucket.upload "./uploads/#{fileName}", options, (err, file) -> 
+      if err?
+        console.log "Error uploading file to Google Cloud Storage"
+        console.log err
+      if file?
+        console.log "File uploaded to Google Cloud storage, deleting from disk"
+        fs.unlink "./uploads/#{fileName}"
+            
 
   form.on 'error', (err) ->
     statusCode = err.statusCode || 404
     res.status(statusCode)
+    console.log "Error uploading file"
+    console.log err
     return
 
   form.on 'part', (part) ->
@@ -86,28 +112,27 @@ app.post '/upload', (req, res) ->
     part.on 'error', (err) ->
       statusCode = err.statusCode || 404
       res.status(statusCode)
+      console.log "Error uploading file"
+      console.log err
       return
+
+    console.log "Upload started for #{part.filename}"
 
     fileType = '.' + part.filename.split('.').pop().toLowerCase()
     fileName = "#{Date.now()}-#{part.filename}"
-    console.log fileName
 
-    options =
-      resumable: true
-      validation: 'crc32c'
-      metadata:
-        contentType: Mimer(fileType)
-    
     # clear out the part's headers to prevent conflicting data being passed to GCS
     part.headers = null
 
     # create/select file in GC bucket
-    file = bucket.file(fileName)
+
+    writeStream = fs.createWriteStream('./uploads/'+fileName)
+
+    console.log "File renamed to #{fileName}"
 
     # start streaming file
-    part.pipe(file.createWriteStream(options)).on 'error', (err) ->
+    part.pipe(writeStream).on 'error', (err) ->
       console.log(err)
-
 
   try
     form.parse req
